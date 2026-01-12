@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#030712"/>
+  <g transform="translate(96, 96)">
+    <!-- Bread/Note icon -->
+    <path d="M280 40H40C17.9 40 0 57.9 0 80v240c0 22.1 17.9 40 40 40h240c22.1 0 40-17.9 40-40V80c0-22.1-17.9-40-40-40z" fill="#1e3a5f" stroke="#3b82f6" stroke-width="8"/>
+    <path d="M60 100h200" stroke="#3b82f6" stroke-width="16" stroke-linecap="round"/>
+    <path d="M60 160h160" stroke="#60a5fa" stroke-width="12" stroke-linecap="round"/>
+    <path d="M60 210h180" stroke="#60a5fa" stroke-width="12" stroke-linecap="round"/>
+    <path d="M60 260h120" stroke="#60a5fa" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>
