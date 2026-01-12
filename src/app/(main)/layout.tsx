@@ -1,0 +1,28 @@
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { Sidebar } from '@/components/layout/sidebar';
+import { Header } from '@/components/layout/header';
+
+export default async function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect('/login');
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      <Sidebar user={session.user} />
+      <div className="flex-1 flex flex-col lg:ml-64">
+        <Header user={session.user} />
+        <main className="flex-1 overflow-auto p-4 lg:p-6">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
