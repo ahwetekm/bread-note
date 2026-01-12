@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import {
   Menu,
+  X,
   Search,
   Bell,
   LogOut,
@@ -18,23 +19,34 @@ import type { User } from 'next-auth';
 
 interface HeaderProps {
   user: User;
+  onMenuToggle?: () => void;
+  isSidebarOpen?: boolean;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, onMenuToggle, isSidebarOpen }: HeaderProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Detect online status
-  if (typeof window !== 'undefined') {
-    window.addEventListener('online', () => setIsOnline(true));
-    window.addEventListener('offline', () => setIsOnline(false));
-  }
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 lg:px-6">
       {/* Mobile Menu Button */}
-      <Button variant="ghost" size="icon" className="lg:hidden">
-        <Menu className="h-5 w-5" />
+      <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuToggle}>
+        {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         <span className="sr-only">Toggle menu</span>
       </Button>
 

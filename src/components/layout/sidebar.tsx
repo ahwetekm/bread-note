@@ -19,6 +19,8 @@ import type { User } from 'next-auth';
 
 interface SidebarProps {
   user: User;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 const navigation = [
@@ -34,11 +36,30 @@ const secondaryNavigation = [
   { name: 'Search', href: '/search', icon: Search },
 ];
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
 
+  const handleLinkClick = () => {
+    // Close sidebar on mobile when link is clicked
+    if (onClose) onClose();
+  };
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 flex-col border-r bg-card lg:flex">
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-64 flex-col border-r bg-card transition-transform duration-300 lg:translate-x-0 lg:flex',
+          isOpen ? 'translate-x-0 flex' : '-translate-x-full hidden lg:flex'
+        )}
+      >
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <span className="text-2xl">🍞</span>
@@ -63,6 +84,7 @@ export function Sidebar({ user }: SidebarProps) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleLinkClick}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -86,6 +108,7 @@ export function Sidebar({ user }: SidebarProps) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleLinkClick}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -104,6 +127,7 @@ export function Sidebar({ user }: SidebarProps) {
       <div className="border-t p-4">
         <Link
           href="/settings"
+          onClick={handleLinkClick}
           className={cn(
             'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
             pathname === '/settings'
@@ -124,6 +148,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
