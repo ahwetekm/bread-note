@@ -103,6 +103,7 @@ export interface SyncQueueItem {
   entityType: 'note' | 'todo' | 'folder' | 'tag' | 'noteTag';
   entityId: string;
   operation: 'create' | 'update' | 'delete';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;
   timestamp: number;
   retryCount: number;

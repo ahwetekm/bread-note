@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FolderClosed, FolderOpen, Plus, MoreHorizontal, Loader2, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { FolderClosed, FolderOpen, Plus, Loader2, Pencil, Trash2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 interface Folder {

@@ -5,7 +5,7 @@ import { notes } from '@/lib/db/schema';
 import { eq, and, isNotNull, desc } from 'drizzle-orm';
 
 // GET /api/notes/trash - Get all trashed notes
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 }
 
 // DELETE /api/notes/trash - Empty trash (permanent delete all)
-export async function DELETE(request: NextRequest) {
+export async function DELETE(_request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

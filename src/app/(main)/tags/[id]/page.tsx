@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NoteList } from '@/components/notes/note-list';
-import { Tag, ArrowLeft, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 
@@ -71,6 +71,7 @@ export default function TagDetailPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     fetchTag();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleUpdate = async () => {

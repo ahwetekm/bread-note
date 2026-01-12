@@ -65,6 +65,7 @@ export default function FolderDetailPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     fetchFolder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleUpdateName = async () => {

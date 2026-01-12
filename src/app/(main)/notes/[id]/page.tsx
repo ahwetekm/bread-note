@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TiptapEditor } from '@/components/editor/tiptap-editor';
-import { ArrowLeft, Save, Loader2, Star, Pin, Trash2, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Star, Pin, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 

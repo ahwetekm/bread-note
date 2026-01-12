@@ -25,6 +25,7 @@ export const folders = sqliteTable('folders', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parentId: text('parent_id').references((): any => folders.id, { onDelete: 'cascade' }),
   color: text('color'),
   icon: text('icon'),
@@ -100,6 +101,7 @@ export const todos = sqliteTable('todos', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   noteId: text('note_id').references(() => notes.id, { onDelete: 'cascade' }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parentId: text('parent_id').references((): any => todos.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   description: text('description'),
