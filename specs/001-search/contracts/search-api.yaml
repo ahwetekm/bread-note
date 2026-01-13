@@ -1,0 +1,159 @@
+openapi: 3.1.0
+info:
+  title: Bread Note Search API
+  version: 1.0.0
+  description: Not arama API endpoint'i
+
+servers:
+  - url: /api
+    description: API base path
+
+paths:
+  /search:
+    get:
+      summary: Search notes
+      description: |
+        Kullanıcının notlarını başlık ve içerik üzerinden arar.
+        Sonuçlar en son güncellenen önce olacak şekilde sıralanır.
+      operationId: searchNotes
+      tags:
+        - Search
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Arama terimi (minimum 2 karakter)
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+            example: "toplantı notları"
+        - name: limit
+          in: query
+          required: false
+          description: Maksimum sonuç sayısı
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Başarılı arama sonuçları
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+              example:
+                results:
+                  - id: "abc123xyz"
+                    title: "Proje Toplantı Notları"
+                    preview: "Bu hafta yapılan toplantıda ele alınan konular..."
+                    matchType: "both"
+                    updatedAt: "2026-01-13T10:30:00Z"
+                  - id: "def456uvw"
+                    title: "Günlük Notlar"
+                    preview: "Toplantı sonrası yapılacaklar listesi..."
+                    matchType: "content"
+                    updatedAt: "2026-01-12T15:45:00Z"
+                total: 2
+                query: "toplantı"
+        '400':
+          description: Geçersiz arama parametresi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Search query must be at least 2 characters"
+        '401':
+          description: Yetkisiz erişim
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Unauthorized"
+        '500':
+          description: Sunucu hatası
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: authjs.session-token
+      description: NextAuth.js session cookie
+
+  schemas:
+    SearchResponse:
+      type: object
+      required:
+        - results
+        - total
+        - query
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+        total:
+          type: integer
+          description: Toplam eşleşen sonuç sayısı
+          example: 15
+        query:
+          type: string
+          description: Aranan terim
+          example: "toplantı"
+
+    SearchResult:
+      type: object
+      required:
+        - id
+        - title
+        - preview
+        - matchType
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Not ID
+          example: "abc123xyz"
+        title:
+          type: string
+          description: Not başlığı
+          example: "Proje Toplantı Notları"
+        preview:
+          type: string
+          description: İçerik önizlemesi (maksimum 150 karakter)
+          maxLength: 150
+          example: "Bu hafta yapılan toplantıda ele alınan konular..."
+        matchType:
+          type: string
+          enum:
+            - title
+            - content
+            - both
+          description: Eşleşme türü
+          example: "both"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Son güncelleme tarihi
+          example: "2026-01-13T10:30:00Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Hata mesajı
+          example: "Search query must be at least 2 characters"

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import {
   Menu,
   X,
-  Search,
   Bell,
   LogOut,
   Settings,
@@ -16,6 +15,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import type { User } from 'next-auth';
+import { SearchInput } from '@/components/search/search-input';
 
 interface HeaderProps {
   user: User;
@@ -57,16 +57,7 @@ export function Header({ user, onMenuToggle, isSidebarOpen }: HeaderProps) {
       </div>
 
       {/* Search */}
-      <div className="flex-1 lg:max-w-md">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            placeholder="Search notes... (Ctrl+K)"
-            className="w-full rounded-md border bg-background pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-      </div>
+      <SearchInput />
 
       {/* Right side */}
       <div className="flex items-center gap-2">
