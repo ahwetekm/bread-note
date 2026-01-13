@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TiptapEditor } from '@/components/editor/tiptap-editor';
-import { ArrowLeft, Save, Loader2, Star, Pin, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Star, Pin, Trash2, Pencil, X } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 
@@ -39,6 +39,9 @@ export default function EditNotePage({ params }: { params: Promise<{ id: string 
   const [error, setError] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [originalTitle, setOriginalTitle] = useState('');
+  const [originalContent, setOriginalContent] = useState('');
 
   // Fetch note
   useEffect(() => {
@@ -82,6 +85,20 @@ export default function EditNotePage({ params }: { params: Promise<{ id: string 
     setHasChanges(true);
   };
 
+  const handleStartEdit = () => {
+    setOriginalTitle(title);
+    setOriginalContent(content);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setTitle(originalTitle);
+    setContent(originalContent);
+    setPlainText(note?.plainText || '');
+    setHasChanges(false);
+    setIsEditing(false);
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setError('');
@@ -111,6 +128,9 @@ export default function EditNotePage({ params }: { params: Promise<{ id: string 
       const updatedNote = await response.json();
       setVersion(updatedNote.version);
       setHasChanges(false);
+      setIsEditing(false);
+      setOriginalTitle(title.trim() || 'Untitled');
+      setOriginalContent(content);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save note');
     } finally {
@@ -213,7 +233,9 @@ export default function EditNotePage({ params }: { params: Promise<{ id: string 
             </Link>
           </Button>
           <span className="text-sm text-muted-foreground">
-            {hasChanges ? 'Unsaved changes' : 'Saved'}
+            {isEditing
+              ? (hasChanges ? 'Unsaved changes' : 'Editing')
+              : 'Saved'}
           </span>
         </div>
 
@@ -245,14 +267,26 @@ export default function EditNotePage({ params }: { params: Promise<{ id: string 
           >
             <Trash2 className="h-4 w-4" />
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !hasChanges}>
-            {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Save
-          </Button>
+          {isEditing && (
+            <>
+              <Button
+                variant="ghost"
+                onClick={handleCancelEdit}
+                title="Discard changes"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving || !hasChanges}>
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -292,19 +326,40 @@ export default function EditNotePage({ params }: { params: Promise<{ id: string 
       )}
 
       {/* Title */}
-      <Input
-        type="text"
-        placeholder="Note title..."
-        value={title}
-        onChange={(e) => handleTitleChange(e.target.value)}
-        className="text-2xl font-bold border-none bg-transparent px-0 h-auto py-2 focus-visible:ring-0 placeholder:text-muted-foreground/50"
-      />
+      <div className="flex items-center gap-2">
+        {isEditing ? (
+          <Input
+            type="text"
+            placeholder="Note title..."
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            className="text-2xl font-bold border-none bg-transparent px-0 h-auto py-2 focus-visible:ring-0 placeholder:text-muted-foreground/50 flex-1"
+            autoFocus
+          />
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold flex-1">
+              {title || 'Untitled'}
+            </h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={handleStartEdit}
+              title="Edit note"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      </div>
 
       {/* Editor */}
       <TiptapEditor
         content={content}
         onChange={handleContentChange}
         placeholder="Start writing your note..."
+        editable={isEditing}
       />
 
       {/* Footer info */}

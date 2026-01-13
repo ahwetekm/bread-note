@@ -88,6 +88,13 @@ export function TiptapEditor({
     }
   }, [content, editor]);
 
+  // Handle dynamic editable prop changes
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.setEditable(editable);
+    }
+  }, [editor, editable]);
+
   // Client-side mounting
   useEffect(() => {
     setIsMounted(true);
