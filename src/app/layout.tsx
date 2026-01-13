@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { SessionProvider } from '@/components/providers/session-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { PWAProvider } from '@/components/providers/pwa-provider';
+import { ThemeProvider } from '@/lib/theme/theme-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -39,15 +40,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <SessionProvider>
-          <QueryProvider>
-            <PWAProvider>
-              {children}
-            </PWAProvider>
-          </QueryProvider>
-        </SessionProvider>
+        <ThemeProvider defaultTheme="system">
+          <SessionProvider>
+            <QueryProvider>
+              <PWAProvider>
+                {children}
+              </PWAProvider>
+            </QueryProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

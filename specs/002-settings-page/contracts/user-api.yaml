@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: Bread Note - User Settings API
+  description: Kullanıcı profil ve ayarlar yönetimi API'si
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: Next.js API Routes
+
+paths:
+  /user:
+    get:
+      summary: Kullanıcı profil bilgilerini getir
+      operationId: getUserProfile
+      tags:
+        - User
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Profil bilgileri başarıyla getirildi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      summary: Kullanıcı profil bilgilerini güncelle
+      operationId: updateUserProfile
+      tags:
+        - User
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profil başarıyla güncellendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /user/password:
+    post:
+      summary: Kullanıcı şifresini değiştir
+      operationId: changePassword
+      tags:
+        - User
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Şifre başarıyla değiştirildi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation hatası veya mevcut şifre yanlış
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /user/delete:
+    post:
+      summary: Kullanıcı hesabını kalıcı olarak sil
+      operationId: deleteAccount
+      description: |
+        Kullanıcı hesabını ve tüm ilişkili verileri kalıcı olarak siler.
+        Bu işlem geri alınamaz.
+      tags:
+        - User
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteAccountRequest'
+      responses:
+        '200':
+          description: Hesap başarıyla silindi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Şifre doğrulaması başarısız
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: authjs.session-token
+      description: NextAuth.js session token
+
+  schemas:
+    UserProfileResponse:
+      type: object
+      required:
+        - id
+        - email
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Kullanıcı ID (nanoid)
+          example: "abc123xyz"
+        name:
+          type: string
+          nullable: true
+          description: Kullanıcı adı
+          example: "Ahmet Ekmekçioğlu"
+        email:
+          type: string
+          format: email
+          description: Kullanıcı email adresi
+          example: "ahmet@example.com"
+        avatar:
+          type: string
+          nullable: true
+          description: Avatar URL
+          example: "https://example.com/avatar.jpg"
+        createdAt:
+          type: string
+          format: date-time
+          description: Hesap oluşturma tarihi
+          example: "2024-01-15T10:30:00Z"
+
+    UpdateProfileRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Yeni kullanıcı adı
+          example: "Ahmet Yeni Ad"
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+        - confirmPassword
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+          description: Mevcut şifre
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: Yeni şifre (en az 8 karakter, 1 büyük, 1 küçük harf, 1 rakam)
+        confirmPassword:
+          type: string
+          description: Yeni şifre onayı
+
+    DeleteAccountRequest:
+      type: object
+      required:
+        - password
+        - confirmation
+      properties:
+        password:
+          type: string
+          minLength: 1
+          description: Hesap şifresi (doğrulama için)
+        confirmation:
+          type: string
+          enum:
+            - "SİL"
+          description: Silme onayı (tam olarak "SİL" yazılmalı)
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "İşlem başarıyla tamamlandı"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Hata kodu
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              description: Kullanıcı dostu hata mesajı
+              example: "Mevcut şifre hatalı"
+            details:
+              type: object
+              description: Ek hata detayları
+              additionalProperties: true
+
+  responses:
+    Unauthorized:
+      description: Oturum geçersiz veya süresi dolmuş
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Oturum açmanız gerekiyor"
+
+    ValidationError:
+      description: İstek doğrulama hatası
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Ad boş olamaz"
+              details:
+                field: "name"
+
+    InternalError:
+      description: Sunucu hatası
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "INTERNAL_ERROR"
+              message: "Bir hata oluştu, lütfen tekrar deneyin"
