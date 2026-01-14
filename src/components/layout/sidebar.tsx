@@ -10,7 +10,6 @@ import {
   Trash2,
   Search,
   Settings,
-  FolderClosed,
   Tag,
   Plus,
 } from 'lucide-react';
@@ -31,7 +30,6 @@ const navigation = [
 ];
 
 const secondaryNavigation = [
-  { name: 'Folders', href: '/folders', icon: FolderClosed },
   { name: 'Tags', href: '/tags', icon: Tag },
   { name: 'Search', href: '/search', icon: Search },
 ];

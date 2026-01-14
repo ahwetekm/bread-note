@@ -75,6 +75,19 @@ export function SearchInput({ placeholder }: SearchInputProps) {
     }
   }, []);
 
+  // Handle result click
+  const handleResultClick = useCallback((result: SearchResult) => {
+    router.push(`/notes/${result.id}`);
+    setIsOpen(false);
+    setQuery('');
+    setSelectedIndex(-1);
+  }, [router]);
+
+  // Handle result hover
+  const handleResultHover = useCallback((index: number) => {
+    setSelectedIndex(index);
+  }, []);
+
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isOpen || results.length === 0) {
@@ -112,20 +125,7 @@ export function SearchInput({ placeholder }: SearchInputProps) {
         inputRef.current?.blur();
         break;
     }
-  }, [isOpen, results, selectedIndex]);
-
-  // Handle result click
-  const handleResultClick = useCallback((result: SearchResult) => {
-    router.push(`/notes/${result.id}`);
-    setIsOpen(false);
-    setQuery('');
-    setSelectedIndex(-1);
-  }, [router]);
-
-  // Handle result hover
-  const handleResultHover = useCallback((index: number) => {
-    setSelectedIndex(index);
-  }, []);
+  }, [isOpen, results, selectedIndex, handleResultClick]);
 
   // Determine if dropdown should be shown
   const showDropdown = isOpen && (query.length >= 1 || isLoading);

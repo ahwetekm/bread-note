@@ -15,14 +15,16 @@
 | Rich text editing (Tiptap) | TAMAMLANDI | Tam fonksiyonel editor |
 | PWA (Progressive Web App) | TAMAMLANDI | Manifest, SW, offline page |
 | Offline-first sync | BEKLEMEDE | Schema hazir, engine yok |
-| To-do lists with subtasks | TAMAMLANDI | Tiptap task extension |
+| To-do lists with subtasks | TAMAMLANDI | Bagimsiz /todos sayfasi, CRUD API |
 | Tags & folders | TAMAMLANDI | CRUD API'ler calisiyor |
-| Full-text search | BEKLEMEDE | API yok |
+| Full-text search | TAMAMLANDI | /api/search endpoint, useSearch hook |
 | Note sharing | BEKLEMEDE | Schema var, API yok |
-| Trash with 30-day retention | KISMI | API routes var |
+| Trash with 30-day retention | TAMAMLANDI | Tam CRUD, restore, kalici silme |
 | PDF export | BEKLEMEDE | Kutuphane yuklu |
 | Notifications | BEKLEMEDE | Schema var |
-| Keyboard shortcuts | BEKLEMEDE | Implementasyon yok |
+| Keyboard shortcuts | KISMI | Ctrl+K arama kisayolu var |
+| Settings page | TAMAMLANDI | Profil, sifre, tema, hesap silme |
+| User management | TAMAMLANDI | Profil guncelleme, sifre degistirme |
 
 ---
 
@@ -68,6 +70,8 @@ src/
 │   │   ├── tags/
 │   │   │   ├── page.tsx
 │   │   │   └── [id]/page.tsx
+│   │   ├── todos/page.tsx           # To-Do sayfasi
+│   │   ├── settings/page.tsx        # Ayarlar sayfasi
 │   │   ├── trash/page.tsx
 │   │   └── layout.tsx
 │   ├── api/
@@ -83,76 +87,164 @@ src/
 │   │   │   └── trash/
 │   │   │       ├── route.ts
 │   │   │       └── [id]/route.ts
-│   │   └── tags/
+│   │   ├── tags/
+│   │   │   ├── route.ts
+│   │   │   └── [id]/route.ts
+│   │   ├── todos/
+│   │   │   ├── route.ts
+│   │   │   └── [id]/route.ts
+│   │   ├── search/
+│   │   │   └── route.ts
+│   │   └── user/
 │   │       ├── route.ts
-│   │       └── [id]/route.ts
+│   │       ├── password/route.ts
+│   │       └── delete/route.ts
+│   ├── offline/page.tsx
 │   ├── layout.tsx
 │   └── page.tsx
 ├── components/
 │   ├── editor/
-│   │   ├── tiptap-editor.tsx      # Rich text editor
+│   │   ├── tiptap-editor.tsx
 │   │   └── editor-toolbar.tsx
 │   ├── layout/
-│   │   ├── header.tsx             # Ust menu
-│   │   └── sidebar.tsx            # Yan menu
+│   │   ├── header.tsx
+│   │   ├── sidebar.tsx
+│   │   └── main-layout.tsx
 │   ├── notes/
 │   │   ├── note-card.tsx
 │   │   └── note-list.tsx
+│   ├── todos/
+│   │   ├── todo-list.tsx
+│   │   ├── todo-item.tsx
+│   │   ├── todo-form.tsx
+│   │   ├── subtask-list.tsx
+│   │   ├── todo-filters.tsx
+│   │   ├── empty-state.tsx
+│   │   └── delete-confirm-dialog.tsx
+│   ├── settings/
+│   │   ├── settings-tabs.tsx
+│   │   ├── profile-form.tsx
+│   │   ├── password-form.tsx
+│   │   ├── theme-selector.tsx
+│   │   └── delete-account-dialog.tsx
+│   ├── search/
+│   │   ├── search-input.tsx
+│   │   ├── search-results.tsx
+│   │   └── search-highlight.tsx
 │   ├── providers/
 │   │   ├── session-provider.tsx
-│   │   └── query-provider.tsx   # TanStack Query
-│   └── ui/                        # Shadcn/UI
+│   │   ├── query-provider.tsx
+│   │   └── pwa-provider.tsx
+│   └── ui/                          # Shadcn/UI
 │       ├── button.tsx
 │       ├── card.tsx
+│       ├── checkbox.tsx
+│       ├── dialog.tsx
 │       ├── input.tsx
-│       └── label.tsx
+│       ├── label.tsx
+│       ├── select.tsx
+│       └── tabs.tsx
 ├── lib/
 │   ├── auth/
-│   │   ├── config.ts              # Edge-compatible config
-│   │   └── index.ts               # Full NextAuth config
+│   │   ├── config.ts
+│   │   └── index.ts
 │   ├── db/
-│   │   ├── schema.ts              # Turso/Drizzle schema
-│   │   └── index.ts               # DB client
+│   │   ├── schema.ts
+│   │   └── index.ts
 │   ├── indexeddb/
-│   │   ├── schema.ts              # Dexie schema
-│   │   └── index.ts               # Dexie instance
+│   │   ├── schema.ts
+│   │   └── index.ts
 │   ├── hooks/
-│   │   ├── index.ts               # Export all hooks
-│   │   ├── use-notes.ts           # Notes CRUD hooks
-│   │   ├── use-folders.ts         # Folders CRUD hooks
-│   │   └── use-tags.ts            # Tags CRUD hooks
+│   │   ├── index.ts
+│   │   ├── use-notes.ts
+│   │   ├── use-folders.ts
+│   │   ├── use-tags.ts
+│   │   ├── use-todos.ts
+│   │   ├── use-user.ts
+│   │   ├── use-search.ts
+│   │   ├── use-service-worker.ts
+│   │   └── use-online-status.ts
+│   ├── validations/
+│   │   ├── todos.ts
+│   │   └── user.ts
 │   └── utils/
-│       └── cn.ts                  # className utility
+│       └── cn.ts
 ├── types/
 │   └── next-auth.d.ts
-└── middleware.ts                  # Auth middleware
+└── middleware.ts
 ```
 
 ---
 
 ## API Routes (Gercek Durum)
 
+### Authentication
 | Endpoint | Metod | Durum | Aciklama |
 |----------|-------|-------|----------|
 | `/api/auth/[...nextauth]` | POST | CALISIYOR | NextAuth handler |
 | `/api/auth/register` | POST | CALISIYOR | Kullanici kayit |
-| `/api/notes` | GET | CALISIYOR | Notlari listele (paginated) |
+
+### Notes
+| Endpoint | Metod | Durum | Aciklama |
+|----------|-------|-------|----------|
+| `/api/notes` | GET | CALISIYOR | Notlari listele (paginated, filtered) |
 | `/api/notes` | POST | CALISIYOR | Yeni not olustur |
-| `/api/notes/[id]` | GET, PATCH, DELETE | CALISIYOR | Not detay/guncelle/sil |
-| `/api/notes/trash` | GET, POST | ROUTE VAR | Cop kutusu |
-| `/api/notes/trash/[id]` | DELETE | ROUTE VAR | Kalici silme |
+| `/api/notes/[id]` | GET | CALISIYOR | Not detay |
+| `/api/notes/[id]` | PATCH | CALISIYOR | Not guncelle |
+| `/api/notes/[id]` | DELETE | CALISIYOR | Not sil (soft delete) |
+
+### Trash
+| Endpoint | Metod | Durum | Aciklama |
+|----------|-------|-------|----------|
+| `/api/notes/trash` | GET | CALISIYOR | Silinen notlari listele |
+| `/api/notes/trash` | DELETE | CALISIYOR | Cop kutusunu bosalt |
+| `/api/notes/trash/[id]` | POST | CALISIYOR | Notu geri yukle |
+| `/api/notes/trash/[id]` | DELETE | CALISIYOR | Kalici sil |
+
+### Folders
+| Endpoint | Metod | Durum | Aciklama |
+|----------|-------|-------|----------|
 | `/api/folders` | GET | CALISIYOR | Klasorleri listele |
 | `/api/folders` | POST | CALISIYOR | Yeni klasor |
-| `/api/folders/[id]` | GET, PATCH, DELETE | CALISIYOR | Klasor islemleri |
-| `/api/tags` | GET | CALISIYOR | Etiketleri listele |
+| `/api/folders/[id]` | GET | CALISIYOR | Klasor detay (notlar dahil) |
+| `/api/folders/[id]` | PATCH | CALISIYOR | Klasor guncelle |
+| `/api/folders/[id]` | DELETE | CALISIYOR | Klasor sil |
+
+### Tags
+| Endpoint | Metod | Durum | Aciklama |
+|----------|-------|-------|----------|
+| `/api/tags` | GET | CALISIYOR | Etiketleri listele (not sayisi dahil) |
 | `/api/tags` | POST | CALISIYOR | Yeni etiket |
-| `/api/tags/[id]` | GET, PATCH, DELETE | CALISIYOR | Etiket islemleri |
+| `/api/tags/[id]` | GET | CALISIYOR | Etiket detay (notlar dahil) |
+| `/api/tags/[id]` | PATCH | CALISIYOR | Etiket guncelle |
+| `/api/tags/[id]` | DELETE | CALISIYOR | Etiket sil |
+
+### Todos
+| Endpoint | Metod | Durum | Aciklama |
+|----------|-------|-------|----------|
+| `/api/todos` | GET | CALISIYOR | Todo listele (filter: all/active/completed) |
+| `/api/todos` | POST | CALISIYOR | Yeni todo |
+| `/api/todos/[id]` | GET | CALISIYOR | Todo detay (subtasks dahil) |
+| `/api/todos/[id]` | PATCH | CALISIYOR | Todo guncelle |
+| `/api/todos/[id]` | DELETE | CALISIYOR | Todo sil |
+
+### Search
+| Endpoint | Metod | Durum | Aciklama |
+|----------|-------|-------|----------|
+| `/api/search` | GET | CALISIYOR | Not ara (q, limit params) |
+
+### User
+| Endpoint | Metod | Durum | Aciklama |
+|----------|-------|-------|----------|
+| `/api/user` | GET | CALISIYOR | Kullanici profili |
+| `/api/user` | PATCH | CALISIYOR | Profil guncelle |
+| `/api/user/password` | POST | CALISIYOR | Sifre degistir |
+| `/api/user/delete` | POST | CALISIYOR | Hesabi sil |
 
 ### Henuz Olmayan API'ler
 
 - `/api/notes/sync` - Delta sync endpoint
 - `/api/notes/export` - PDF export
-- `/api/search` - Full-text search
 - `/api/share` - Not paylasimi
 - `/api/share/[token]` - Paylasilan not
 
@@ -220,13 +312,15 @@ todos: {
   id: text (PK)
   userId: text (FK -> users)
   noteId: text? (FK -> notes)
-  parentId: text? (self-reference for subtasks)
+  parentId: text? (self-reference for subtasks, max 2 levels)
   title: text
   isCompleted: integer (boolean)
+  completedAt: integer? (timestamp)
   priority: text (low | medium | high)
   dueDate: integer?
   reminderAt: integer?
   order: integer
+  deletedAt: integer? (soft delete)
   createdAt, updatedAt: integer
 }
 
@@ -281,14 +375,120 @@ syncMetadata: '&id, deviceId, lastSyncAt'
 ```
 users 1──n notes
 users 1──n folders
+users 1──n todos
 folders 1──n notes
 folders 1──n folders (parentId)
 notes n──n tags (via noteTags)
 todos n──1 notes (optional)
-todos n──1 todos (parentId for subtasks)
+todos n──1 todos (parentId for subtasks, max 2 levels)
 shares n──1 notes
 shares n──1 users (sharedBy)
 shares n──1 users (sharedWith, optional)
+```
+
+---
+
+## Components
+
+### Layout Components
+
+```typescript
+// src/components/layout/
+header.tsx        // Arama, sync status, bildirimler, kullanici menu
+sidebar.tsx       // Navigation (All Notes, Favorites, Todos, Trash, Folders, Tags)
+main-layout.tsx   // Ana layout wrapper
+```
+
+### Editor Components
+
+```typescript
+// src/components/editor/
+tiptap-editor.tsx    // Rich text editor
+editor-toolbar.tsx   // Toolbar (bold, italic, headings, lists, etc.)
+```
+
+### Todo Components
+
+```typescript
+// src/components/todos/
+todo-list.tsx              // Ana container
+todo-item.tsx              // Tek todo item
+todo-form.tsx              // Olusturma/duzenleme formu
+subtask-list.tsx           // Alt gorevler
+todo-filters.tsx           // Filtre butonlari (all, active, completed)
+empty-state.tsx            // Bos durum mesaji
+delete-confirm-dialog.tsx  // Silme onay dialog
+```
+
+### Settings Components
+
+```typescript
+// src/components/settings/
+settings-tabs.tsx        // Tab navigation
+profile-form.tsx         // Isim guncelleme
+password-form.tsx        // Sifre degistirme
+theme-selector.tsx       // Tema secici (dark/light/auto)
+delete-account-dialog.tsx // Hesap silme onay
+```
+
+### Search Components
+
+```typescript
+// src/components/search/
+search-input.tsx     // Arama input (debounce, dropdown)
+search-results.tsx   // Sonuc listesi
+search-highlight.tsx // Eslesen metni vurgula
+```
+
+---
+
+## Hooks
+
+```typescript
+// src/lib/hooks/
+
+// Notes
+useNotes()           // Not listesi (paginated, filtered)
+useNote(id)          // Tek not
+useCreateNote()      // Not olustur
+useUpdateNote()      // Not guncelle
+useDeleteNote()      // Not sil (soft)
+useToggleFavorite()  // Favori toggle
+useTogglePin()       // Pin toggle
+
+// Folders
+useFolders()         // Klasor listesi
+useFolder(id)        // Tek klasor (notlar dahil)
+useCreateFolder()    // Klasor olustur
+useUpdateFolder()    // Klasor guncelle
+useDeleteFolder()    // Klasor sil
+
+// Tags
+useTags()            // Etiket listesi (not sayisi dahil)
+useTag(id)           // Tek etiket (notlar dahil)
+useCreateTag()       // Etiket olustur
+useUpdateTag()       // Etiket guncelle
+useDeleteTag()       // Etiket sil
+
+// Todos
+useTodos(filter)     // Todo listesi (all/active/completed)
+useTodo(id)          // Tek todo (subtasks dahil)
+useCreateTodo()      // Todo olustur
+useUpdateTodo()      // Todo guncelle
+useDeleteTodo()      // Todo sil
+
+// User
+useUser()            // Kullanici profili
+useUpdateUser()      // Profil guncelle
+useChangePassword()  // Sifre degistir
+useDeleteAccount()   // Hesap sil
+
+// Search
+useSearch(query)     // Not ara (debounced)
+
+// Utils
+useOnlineStatus()    // Online/offline durumu
+useServiceWorker()   // PWA service worker
 ```
 
 ---
@@ -303,51 +503,10 @@ src/lib/auth/
 └── index.ts     # Full config (API routes icin)
 ```
 
-### config.ts (Edge Runtime)
-
-```typescript
-// Sadece pages ve callbacks - provider/db import yok
-export const authConfig = {
-  pages: {
-    signIn: '/login',
-  },
-  callbacks: {
-    authorized({ auth, request }) { ... },
-    jwt({ token, user }) { ... },
-    session({ session, token }) { ... },
-  },
-  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
-};
-```
-
-### index.ts (Full Config)
-
-```typescript
-import { authConfig } from './config';
-import CredentialsProvider from 'next-auth/providers/credentials';
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  ...authConfig,
-  providers: [
-    CredentialsProvider({
-      credentials: { email, password },
-      authorize: async (credentials) => {
-        // bcrypt.compare ile dogrulama
-      },
-    }),
-  ],
-});
-```
-
 ### Middleware
 
 ```typescript
 // src/middleware.ts
-import NextAuth from 'next-auth';
-import { authConfig } from '@/lib/auth/config';
-
-export default NextAuth(authConfig).auth;
-
 export const config = {
   matcher: [
     '/dashboard/:path*',
@@ -356,47 +515,11 @@ export const config = {
     '/tags/:path*',
     '/favorites/:path*',
     '/trash/:path*',
-    '/search/:path*',
+    '/todos/:path*',
     '/settings/:path*',
+    '/search/:path*',
   ],
 };
-```
-
----
-
-## Components
-
-### Tiptap Editor
-
-```typescript
-// src/components/editor/tiptap-editor.tsx
-Extensions:
-- StarterKit (headings h1-h3, bold, italic, code, lists, blockquote)
-- Typography
-- Underline
-- Link
-- TaskList + TaskItem (nested: true)
-- Placeholder
-
-Props:
-- content: string (Tiptap JSON)
-- onChange: (content: string) => void
-- editable?: boolean
-```
-
-### Layout Components
-
-```typescript
-// Header: Arama, sync status, bildirimler, kullanici menu
-// Sidebar: Navigation (All Notes, Favorites, Trash, Folders, Tags)
-// Mobile: Sidebar toggle button
-```
-
-### Note Components
-
-```typescript
-// NoteList: Grid layout, pinned/unpinned ayirimi
-// NoteCard: Baslik, onizleme, tarih, etiketler
 ```
 
 ---
@@ -447,6 +570,9 @@ xl: '1280px',  // Large desktop
 - [x] Klasor/etiket PATCH/DELETE API'leri tamamla
 - [x] Favori toggle islevi (`useToggleFavorite` hook)
 - [x] Pin toggle islevi (`useTogglePin` hook)
+- [x] To-Do sayfasi ve API'leri
+- [x] Settings sayfasi (profil, sifre, tema, hesap silme)
+- [x] Trash tam CRUD (restore, kalici silme)
 
 ### Oncelik 2: Offline-First Sync
 
@@ -459,11 +585,11 @@ xl: '1280px',  // Large desktop
 
 ### Oncelik 3: Gelismis Ozellikler
 
-- [ ] Full-text search API ve UI
+- [x] Full-text search API ve UI
 - [ ] PDF export
 - [ ] Not paylasimi (public link + user invite)
-- [ ] Keyboard shortcuts sistemi
-- [ ] Command palette (Cmd+K)
+- [x] Keyboard shortcuts sistemi (Ctrl+K arama)
+- [ ] Command palette (Cmd+K - genisletilmis)
 - [ ] Email bildirimleri
 
 ### Oncelik 4: Test & Monitoring
@@ -483,6 +609,7 @@ xl: '1280px',  // Large desktop
 npm run dev          # Development server
 npm run build        # Production build
 npm run lint         # ESLint
+npm run type-check   # TypeScript check
 npm run db:push      # Schema'yi Turso'ya push
 npm run db:studio    # Drizzle Studio
 npm run db:generate  # Migration olustur
@@ -552,6 +679,10 @@ curl -X GET http://localhost:3000/api/notes \
 curl -X POST http://localhost:3000/api/notes \
   -H "Content-Type: application/json" \
   -d '{"title":"Test","content":"{}"}'
+
+# Search test
+curl -X GET "http://localhost:3000/api/search?q=test&limit=10" \
+  -H "Cookie: authjs.session-token=..."
 ```
 
 ---
@@ -564,6 +695,7 @@ curl -X POST http://localhost:3000/api/notes \
 - [x] CSRF korunmasi (NextAuth)
 - [x] HTTP-only session cookies
 - [x] Input validation (Zod)
+- [x] User isolation (tum API'lerde userId kontrolu)
 - [ ] Rate limiting (henuz yok)
 - [ ] Email verification (schema var, flow yok)
 
@@ -582,8 +714,8 @@ curl -X POST http://localhost:3000/api/notes \
 
 ---
 
-**Son Guncelleme**: 2026-01-12
-**Versiyon**: 1.0.0
+**Son Guncelleme**: 2026-01-13
+**Versiyon**: 1.1.0
 **Durum**: Aktif Gelistirme
 
 > Bu dosya implementation sirasinda guncellenecektir.
