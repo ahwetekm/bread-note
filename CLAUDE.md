@@ -719,3 +719,27 @@ curl -X GET "http://localhost:3000/api/search?q=test&limit=10" \
 **Durum**: Aktif Gelistirme
 
 > Bu dosya implementation sirasinda guncellenecektir.
+
+
+
+**Sınırlamalar**:
+
+- Kodda yapılan her değişikliğin veritabanındaki etkilerini düşün ve veritabanında/kod yapısında herhangi bir mantık hatası oluşturmamasına dikkat et
+
+- Kodu olabildiğince optimize et. her kod değişikliğinden sonra kendine "Acaba en optimize yol bu muydu?" sorusunu sor ve cevaba göre yaklaşımını değiştir. 
+
+- Kodda yaptığın her değişikliği test etmeden kullanıcıya sunma. Sorunlar her zaman olur ama test yaparak sorunları azalt.
+
+- Kullanıcının istediği şeyi yaptıktan sonra kullanıcıya ".. eksik kaldı bunu da yapmak ister misin?" sorusunu sor. her yapılan değişikliğin sonuçlarıyla ilgili kullanıcıya bilgi ver. 
+
+
+
+**Bakım Modu**
+
+- Kullanıcı "Bakım moduna geçiş yap." promptunu girdiğinde aktifleş. Bu modun asıl amacı veritabanı ve kod sağlığını analiz edip önceden aklına gelmeyen optimizasyon yöntemiyle optimize etmek. Veritabanında açılmış her boş şeyi incele ve sonucunda kullanıcıya daha optimal ve daha sorunsuz bir proje sun. 
+
+- Bakım modu = Plan. Planlama yapmadan bakıma başlama. Kullanıcıya bulduğun her optimizasyon yöntemini ve mantık hatasını raporla. Sebebini ve çözüm yolunu teknik dil kullanmadan en basit şekilde anlat. Kullanıcı onaylarsa çözümü oluştur. 
+
+- Bakım modu bittikten sonra kullanıcıya bir bakım logu ile (md dosyası tercihimdir) yapılan değişiklikleri anlat. Ardından projeyi son kez analiz et ve hata tespiti oluştur, testleri yap. 
+
+- En son testten sonra kullanıcıya proje analizi sonucunda bulduğun eksikleri mesela "Projende .. eksik, bu kullanıcı deneyimini artırır. Eklemeyi düşün." yazarak projenin ilerleyişinde katkıda bulun. 

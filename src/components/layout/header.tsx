@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,10 @@ import {
   LogOut,
   Settings,
   User as UserIcon,
-  Wifi,
-  WifiOff,
 } from 'lucide-react';
 import type { User } from 'next-auth';
 import { SearchInput } from '@/components/search/search-input';
+import { SyncStatusIndicator } from '@/components/sync/sync-status-indicator';
 
 interface HeaderProps {
   user: User;
@@ -24,23 +23,7 @@ interface HeaderProps {
 }
 
 export function Header({ user, onMenuToggle, isSidebarOpen }: HeaderProps) {
-  const [isOnline, setIsOnline] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  // Detect online status
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    setIsOnline(navigator.onLine);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 lg:px-6">
@@ -62,19 +45,8 @@ export function Header({ user, onMenuToggle, isSidebarOpen }: HeaderProps) {
       {/* Right side */}
       <div className="flex items-center gap-2">
         {/* Sync Status */}
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          {isOnline ? (
-            <>
-              <Wifi className="h-4 w-4 text-green-500" />
-              <span className="hidden sm:inline">Synced</span>
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-4 w-4 text-yellow-500" />
-              <span className="hidden sm:inline">Offline</span>
-            </>
-          )}
-        </div>
+        <SyncStatusIndicator showText className="hidden sm:flex" />
+        <SyncStatusIndicator showText={false} className="sm:hidden" />
 
         {/* Notifications */}
         <Button variant="ghost" size="icon">

@@ -33,6 +33,7 @@ export const updateTodoSchema = z.object({
   priority: priorityEnum.optional(),
   isCompleted: z.boolean().optional(),
   position: z.number().int().min(0).optional(),
+  version: z.number().int().min(1).optional(), // For optimistic locking
 });
 
 export type UpdateTodoInput = z.infer<typeof updateTodoSchema>;

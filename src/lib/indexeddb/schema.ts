@@ -74,6 +74,13 @@ export interface LocalTag {
   name: string;
   color?: string;
   createdAt: number;
+  updatedAt: number;
+  deletedAt?: number;
+  version: number;
+  // Sync metadata
+  syncStatus: SyncStatus;
+  lastSyncedAt?: number;
+  localModifiedAt: number;
 }
 
 export interface LocalNoteTag {
@@ -150,6 +157,26 @@ export class BreadNoteDB extends Dexie {
       notifications: 'id, userId, isRead, createdAt, type',
       syncQueue: 'id, entityType, entityId, timestamp',
       syncMetadata: 'id, userId, deviceId',
+    });
+
+    // Version 2 schema - Tags soft delete and sync support
+    this.version(2).stores({
+      notes: 'id, userId, folderId, isPinned, isFavorite, updatedAt, syncStatus, *plainText',
+      todos: 'id, userId, noteId, parentId, isCompleted, priority, syncStatus, dueDate',
+      folders: 'id, userId, parentId, syncStatus',
+      tags: 'id, userId, name, syncStatus, updatedAt, deletedAt',
+      noteTags: 'id, noteId, tagId',
+      notifications: 'id, userId, isRead, createdAt, type',
+      syncQueue: 'id, entityType, entityId, timestamp',
+      syncMetadata: 'id, userId, deviceId',
+    }).upgrade(tx => {
+      // Migrate existing tags to have new fields
+      return tx.table('tags').toCollection().modify(tag => {
+        if (!tag.updatedAt) tag.updatedAt = tag.createdAt;
+        if (!tag.version) tag.version = 1;
+        if (!tag.syncStatus) tag.syncStatus = 'synced';
+        if (!tag.localModifiedAt) tag.localModifiedAt = tag.createdAt;
+      });
     });
   }
 }

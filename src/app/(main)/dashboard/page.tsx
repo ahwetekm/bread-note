@@ -1,128 +1,93 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NoteList } from '@/components/notes/note-list';
 import { Plus, RefreshCw, FolderClosed, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-
-interface Note {
-  id: string;
-  title: string;
-  plainText: string;
-  isPinned: boolean;
-  isFavorite: boolean;
-  updatedAt: string;
-  folderId: string | null;
-  tags?: { id: string; name: string; color?: string }[];
-}
-
-interface Folder {
-  id: string;
-  name: string;
-  parentId: string | null;
-  color: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useNotes } from '@/lib/hooks/use-notes';
+import { useFolders, useCreateFolder } from '@/lib/hooks/use-folders';
 
 export default function DashboardPage() {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
   // Folder selection state
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // Create folder state
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
+  // Use TanStack Query hooks for offline-first data fetching
+  const {
+    data: notesData,
+    isLoading: notesLoading,
+    error: notesError,
+    refetch: refetchNotes
+  } = useNotes({ folderId: selectedFolderId || undefined });
+
+  const {
+    data: foldersData,
+    isLoading: foldersLoading,
+    error: foldersError,
+    refetch: refetchFolders
+  } = useFolders();
+
+  const createFolderMutation = useCreateFolder();
+
+  const notes = useMemo(() => {
+    return notesData?.notes.map(note => ({
+      id: note.id,
+      title: note.title,
+      plainText: note.plainText,
+      isPinned: note.isPinned,
+      isFavorite: note.isFavorite,
+      updatedAt: note.updatedAt instanceof Date
+        ? note.updatedAt.toISOString()
+        : String(note.updatedAt),
+      folderId: note.folderId,
+      tags: note.tags?.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color ?? undefined,
+      })),
+    })) ?? [];
+  }, [notesData]);
+
+  const folders = useMemo(() => {
+    return foldersData?.folders.map(folder => ({
+      id: folder.id,
+      name: folder.name,
+      parentId: folder.parentId,
+      color: folder.color,
+      createdAt: folder.createdAt instanceof Date
+        ? folder.createdAt.toISOString()
+        : String(folder.createdAt),
+      updatedAt: folder.updatedAt instanceof Date
+        ? folder.updatedAt.toISOString()
+        : String(folder.updatedAt),
+    })) ?? [];
+  }, [foldersData]);
+
+  const isLoading = notesLoading || foldersLoading;
+  const error = notesError || foldersError;
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError('');
-
-    try {
-      // Fetch folders and notes in parallel
-      const [foldersRes, notesRes] = await Promise.all([
-        fetch('/api/folders'),
-        fetch('/api/notes'),
-      ]);
-
-      if (!foldersRes.ok || !notesRes.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const [foldersData, notesData] = await Promise.all([
-        foldersRes.json(),
-        notesRes.json(),
-      ]);
-
-      setFolders(foldersData.folders);
-      setNotes(notesData.notes);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Fetch notes when folder selection changes
-  const fetchNotes = useCallback(async (folderId: string | null) => {
-    try {
-      const url = folderId
-        ? `/api/notes?folderId=${folderId}`
-        : '/api/notes';
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch notes');
-      const data = await response.json();
-      setNotes(data.notes);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notes');
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      fetchNotes(selectedFolderId);
-    }
-  }, [selectedFolderId, isLoading, fetchNotes]);
+  const handleRefresh = async () => {
+    await Promise.all([refetchNotes(), refetchFolders()]);
+  };
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
 
-    setIsCreatingFolder(true);
-
     try {
-      const response = await fetch('/api/folders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newFolderName.trim() }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create folder');
-      }
-
-      const newFolder = await response.json();
-      setFolders((prev) => [...prev, newFolder]);
+      await createFolderMutation.mutateAsync({ name: newFolderName.trim() });
       setNewFolderName('');
       setShowCreateFolder(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create folder');
-    } finally {
-      setIsCreatingFolder(false);
+    } catch {
+      // Error handled by mutation
     }
   };
 
@@ -134,10 +99,8 @@ export default function DashboardPage() {
     setSelectedFolderId(null);
   };
 
-  // Count notes per folder
+  // Count notes per folder - use all notes data when viewing all folders
   const getNotesCountForFolder = (folderId: string) => {
-    // When viewing all notes, we have all notes data
-    // When viewing a specific folder, we need to rely on the original data
     return notes.filter((n) => n.folderId === folderId).length;
   };
 
@@ -160,7 +123,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={fetchData} disabled={isLoading || undefined}>
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
           <Button variant="outline" onClick={() => setShowCreateFolder(true)}>
@@ -179,10 +142,19 @@ export default function DashboardPage() {
       {/* Error */}
       {error && (
         <div className="p-4 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-md">
-          {error}
-          <Button variant="link" className="ml-2 p-0 h-auto" onClick={fetchData}>
+          {error instanceof Error ? error.message : 'Failed to load data'}
+          <Button variant="link" className="ml-2 p-0 h-auto" onClick={handleRefresh}>
             Try again
           </Button>
+        </div>
+      )}
+
+      {/* Create Folder Mutation Error */}
+      {createFolderMutation.error && (
+        <div className="p-4 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-md">
+          {createFolderMutation.error instanceof Error
+            ? createFolderMutation.error.message
+            : 'Failed to create folder'}
         </div>
       )}
 
@@ -199,8 +171,8 @@ export default function DashboardPage() {
               className="flex-1"
               autoFocus
             />
-            <Button type="submit" size="sm" disabled={isCreatingFolder || !newFolderName.trim()}>
-              {isCreatingFolder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" size="sm" disabled={createFolderMutation.isPending || !newFolderName.trim()}>
+              {createFolderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create
             </Button>
             <Button

@@ -191,17 +191,41 @@ export async function DELETE(
 
     const now = new Date();
 
-    // Move notes in this folder to no folder
-    await db
-      .update(notes)
-      .set({ folderId: null, updatedAt: now })
-      .where(eq(notes.folderId, id));
+    // Get notes that will be orphaned (for version increment)
+    const orphanedNotes = await db
+      .select({ id: notes.id, version: notes.version })
+      .from(notes)
+      .where(and(eq(notes.folderId, id), isNull(notes.deletedAt)));
 
-    // Move subfolders to parent folder
-    await db
-      .update(folders)
-      .set({ parentId: existingFolder.parentId, updatedAt: now })
-      .where(eq(folders.parentId, id));
+    // Move notes in this folder to no folder (increment version for sync)
+    for (const note of orphanedNotes) {
+      await db
+        .update(notes)
+        .set({
+          folderId: null,
+          updatedAt: now,
+          version: note.version + 1,
+        })
+        .where(eq(notes.id, note.id));
+    }
+
+    // Get subfolders that will be moved
+    const childFolders = await db
+      .select({ id: folders.id, version: folders.version })
+      .from(folders)
+      .where(and(eq(folders.parentId, id), isNull(folders.deletedAt)));
+
+    // Move subfolders to parent folder (increment version for sync)
+    for (const folder of childFolders) {
+      await db
+        .update(folders)
+        .set({
+          parentId: existingFolder.parentId,
+          updatedAt: now,
+          version: folder.version + 1,
+        })
+        .where(eq(folders.id, folder.id));
+    }
 
     // Soft delete the folder
     await db
@@ -209,6 +233,7 @@ export async function DELETE(
       .set({
         deletedAt: now,
         updatedAt: now,
+        version: existingFolder.version + 1,
       })
       .where(eq(folders.id, id));
 

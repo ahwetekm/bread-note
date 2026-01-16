@@ -75,9 +75,13 @@ export const tags = sqliteTable('tags', {
   name: text('name').notNull(),
   color: text('color'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
+  version: integer('version').notNull().default(1),
 }, (table) => ({
   userIdIdx: index('tags_user_id_idx').on(table.userId),
   nameIdx: index('tags_name_idx').on(table.name),
+  updatedAtIdx: index('tags_updated_at_idx').on(table.updatedAt),
 }));
 
 // ============================================================================

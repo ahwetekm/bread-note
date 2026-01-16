@@ -90,6 +90,23 @@ export async function PATCH(
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
     }
 
+    // Version conflict check for optimistic locking
+    if (data.version !== undefined && data.version !== existingTodo.version) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'VERSION_CONFLICT',
+            message: 'This todo has been modified by another session. Please refresh and try again.',
+            details: {
+              currentVersion: existingTodo.version,
+              requestedVersion: data.version,
+            },
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     // Update todo
     const now = new Date();
     const updateData: Record<string, unknown> = {

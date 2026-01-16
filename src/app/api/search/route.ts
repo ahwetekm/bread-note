@@ -36,11 +36,11 @@ export async function GET(request: NextRequest) {
 
     const { q, limit } = validationResult.data;
 
-    // Escape special characters for LIKE query
+    // Escape special characters for LIKE query (SQLite uses \ as escape char)
     const escapedQuery = q.replace(/[%_\\]/g, '\\$&');
     const likePattern = `%${escapedQuery}%`;
 
-    // Search notes with case-insensitive LIKE
+    // Search notes with case-insensitive LIKE and proper ESCAPE clause
     const searchResults = await db
       .select({
         id: notes.id,
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
           eq(notes.userId, session.user.id),
           isNull(notes.deletedAt),
           or(
-            sql`LOWER(${notes.title}) LIKE LOWER(${likePattern})`,
-            sql`LOWER(${notes.plainText}) LIKE LOWER(${likePattern})`
+            sql`LOWER(${notes.title}) LIKE LOWER(${likePattern}) ESCAPE '\\'`,
+            sql`LOWER(${notes.plainText}) LIKE LOWER(${likePattern}) ESCAPE '\\'`
           )
         )
       )
@@ -99,8 +99,8 @@ export async function GET(request: NextRequest) {
           eq(notes.userId, session.user.id),
           isNull(notes.deletedAt),
           or(
-            sql`LOWER(${notes.title}) LIKE LOWER(${likePattern})`,
-            sql`LOWER(${notes.plainText}) LIKE LOWER(${likePattern})`
+            sql`LOWER(${notes.title}) LIKE LOWER(${likePattern}) ESCAPE '\\'`,
+            sql`LOWER(${notes.plainText}) LIKE LOWER(${likePattern}) ESCAPE '\\'`
           )
         )
       );
