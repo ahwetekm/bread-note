@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { notes, noteTags, tags } from '@/lib/db/schema';
-import { eq, desc, and, isNull, sql } from 'drizzle-orm';
+import { eq, desc, and, isNull, sql, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 
@@ -60,21 +60,32 @@ export async function GET(request: NextRequest) {
       .from(notes)
       .where(and(...conditions));
 
-    // Get tags for each note
-    const notesWithTags = await Promise.all(
-      userNotes.map(async (note) => {
-        const noteTags_ = await db
-          .select({ tag: tags })
-          .from(noteTags)
-          .innerJoin(tags, eq(noteTags.tagId, tags.id))
-          .where(eq(noteTags.noteId, note.id));
+    // Get tags for all notes in a single batch query (N+1 fix)
+    const noteIds = userNotes.map((n) => n.id);
+    const noteTagsMap = new Map<string, typeof tags.$inferSelect[]>();
 
-        return {
-          ...note,
-          tags: noteTags_.map((nt) => nt.tag),
-        };
-      })
-    );
+    if (noteIds.length > 0) {
+      const allNoteTags = await db
+        .select({
+          noteId: noteTags.noteId,
+          tag: tags,
+        })
+        .from(noteTags)
+        .innerJoin(tags, and(eq(noteTags.tagId, tags.id), isNull(tags.deletedAt)))
+        .where(inArray(noteTags.noteId, noteIds));
+
+      // Group tags by noteId
+      for (const { noteId, tag } of allNoteTags) {
+        const existing = noteTagsMap.get(noteId) || [];
+        existing.push(tag);
+        noteTagsMap.set(noteId, existing);
+      }
+    }
+
+    const notesWithTags = userNotes.map((note) => ({
+      ...note,
+      tags: noteTagsMap.get(note.id) || [],
+    }));
 
     return NextResponse.json({
       notes: notesWithTags,

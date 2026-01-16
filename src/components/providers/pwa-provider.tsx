@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useServiceWorker, useOnlineStatus } from '@/lib/hooks';
+import { SyncProvider } from '@/components/sync/sync-provider';
 
 export function PWAProvider({ children }: { children: React.ReactNode }) {
   const { isUpdateAvailable, updateServiceWorker } = useServiceWorker();
@@ -27,5 +28,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isOnline]);
 
-  return <>{children}</>;
+  return (
+    <SyncProvider>
+      {children}
+    </SyncProvider>
+  );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TiptapEditor } from '@/components/editor/tiptap-editor';
@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils/cn';
 
 export default function NewNotePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const folderId = searchParams.get('folderId');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [plainText, setPlainText] = useState('');
@@ -43,6 +45,7 @@ export default function NewNotePage() {
           plainText,
           isFavorite,
           isPinned,
+          folderId: folderId || undefined,
         }),
       });
 

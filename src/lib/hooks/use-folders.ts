@@ -1,7 +1,11 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { db } from '@/lib/indexeddb/schema';
+import { syncEngine } from '@/lib/sync';
+import { nanoid } from 'nanoid';
 import type { Folder, Note } from '@/lib/db/schema';
+import type { LocalFolder } from '@/lib/indexeddb/schema';
 
 // Types
 export interface FolderWithContent extends Folder {
@@ -29,61 +33,6 @@ export interface UpdateFolderData {
   version?: number;
 }
 
-// API functions
-async function fetchFolders(): Promise<FoldersResponse> {
-  const res = await fetch('/api/folders');
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to fetch folders');
-  }
-  return res.json();
-}
-
-async function fetchFolder(id: string): Promise<FolderWithContent> {
-  const res = await fetch(`/api/folders/${id}`);
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to fetch folder');
-  }
-  return res.json();
-}
-
-async function createFolder(data: CreateFolderData): Promise<Folder> {
-  const res = await fetch('/api/folders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to create folder');
-  }
-  return res.json();
-}
-
-async function updateFolder({ id, data }: { id: string; data: UpdateFolderData }): Promise<Folder> {
-  const res = await fetch(`/api/folders/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to update folder');
-  }
-  return res.json();
-}
-
-async function deleteFolder(id: string): Promise<void> {
-  const res = await fetch(`/api/folders/${id}`, {
-    method: 'DELETE',
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to delete folder');
-  }
-}
-
 // Query keys
 export const folderKeys = {
   all: ['folders'] as const,
@@ -93,53 +42,269 @@ export const folderKeys = {
   detail: (id: string) => [...folderKeys.details(), id] as const,
 };
 
+// Fetch folders from API (server fallback)
+async function fetchFoldersFromAPI(): Promise<FoldersResponse> {
+  const response = await fetch('/api/folders');
+  if (!response.ok) {
+    throw new Error('Failed to fetch folders from server');
+  }
+  return response.json();
+}
+
+// Fetch folders from IndexedDB (offline-first) with API fallback
+async function fetchFoldersFromLocal(): Promise<FoldersResponse> {
+  const localFolders = await db.folders
+    .filter((folder) => !folder.deletedAt)
+    .toArray();
+
+  // If IndexedDB is empty, fall back to API
+  if (localFolders.length === 0) {
+    try {
+      return await fetchFoldersFromAPI();
+    } catch {
+      // If API also fails, return empty result
+      return { folders: [] };
+    }
+  }
+
+  // Sort by position, then name
+  localFolders.sort((a, b) => {
+    if (a.position !== b.position) return a.position - b.position;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Convert to Folder format
+  const folders = localFolders.map((folder) => ({
+    id: folder.id,
+    userId: folder.userId,
+    name: folder.name,
+    parentId: folder.parentId ?? null,
+    color: folder.color ?? null,
+    icon: folder.icon ?? null,
+    position: folder.position,
+    version: folder.version,
+    createdAt: new Date(folder.createdAt),
+    updatedAt: new Date(folder.updatedAt),
+    deletedAt: folder.deletedAt ? new Date(folder.deletedAt) : null,
+  })) as Folder[];
+
+  return { folders };
+}
+
+// Fetch single folder with content from IndexedDB
+async function fetchFolderFromLocal(id: string): Promise<FolderWithContent | null> {
+  const folder = await db.folders.get(id);
+  if (!folder || folder.deletedAt) return null;
+
+  // Get notes in this folder
+  const notes = await db.notes
+    .filter((note) => note.folderId === id && !note.deletedAt)
+    .toArray();
+
+  // Get subfolders
+  const subfolders = await db.folders
+    .filter((f) => f.parentId === id && !f.deletedAt)
+    .toArray();
+
+  return {
+    id: folder.id,
+    userId: folder.userId,
+    name: folder.name,
+    parentId: folder.parentId ?? null,
+    color: folder.color ?? null,
+    icon: folder.icon ?? null,
+    position: folder.position,
+    version: folder.version,
+    createdAt: new Date(folder.createdAt),
+    updatedAt: new Date(folder.updatedAt),
+    deletedAt: folder.deletedAt ? new Date(folder.deletedAt) : null,
+    notes: notes.map((note) => ({
+      id: note.id,
+      title: note.title,
+      plainText: note.plainText,
+      isPinned: note.isPinned,
+      isFavorite: note.isFavorite,
+      updatedAt: new Date(note.updatedAt),
+    })),
+    subfolders: subfolders.map((sf) => ({
+      id: sf.id,
+      userId: sf.userId,
+      name: sf.name,
+      parentId: sf.parentId ?? null,
+      color: sf.color ?? null,
+      icon: sf.icon ?? null,
+      position: sf.position,
+      version: sf.version,
+      createdAt: new Date(sf.createdAt),
+      updatedAt: new Date(sf.updatedAt),
+      deletedAt: sf.deletedAt ? new Date(sf.deletedAt) : null,
+    })) as Folder[],
+  } as FolderWithContent;
+}
+
 // Hooks
+
+/**
+ * Fetch folders list with offline-first strategy.
+ */
 export function useFolders() {
   return useQuery({
     queryKey: folderKeys.list(),
-    queryFn: fetchFolders,
+    queryFn: fetchFoldersFromLocal,
+    staleTime: 1000,
   });
 }
 
+/**
+ * Fetch single folder with content.
+ */
 export function useFolder(id: string) {
   return useQuery({
     queryKey: folderKeys.detail(id),
-    queryFn: () => fetchFolder(id),
+    queryFn: () => fetchFolderFromLocal(id),
     enabled: !!id,
   });
 }
 
+/**
+ * Create a folder with offline-first strategy.
+ */
 export function useCreateFolder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: createFolder,
+    mutationFn: async (data: CreateFolderData) => {
+      const folderId = nanoid();
+      const now = Date.now();
+
+      // Calculate position (max existing + 1)
+      const existingFolders = await db.folders.toArray();
+      const maxPosition = existingFolders.reduce(
+        (max, f) => Math.max(max, f.position),
+        0
+      );
+
+      const localFolder: LocalFolder = {
+        id: folderId,
+        userId: '',
+        name: data.name,
+        parentId: data.parentId,
+        color: data.color,
+        icon: data.icon,
+        position: maxPosition + 1,
+        createdAt: now,
+        updatedAt: now,
+        version: 1,
+        syncStatus: 'pending',
+        localModifiedAt: now,
+      };
+
+      await db.folders.add(localFolder);
+
+      await syncEngine.queueOperation('folder', folderId, 'create', {
+        name: data.name,
+        parentId: data.parentId,
+        color: data.color,
+        icon: data.icon,
+      });
+
+      return localFolder;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
     },
   });
 }
 
+/**
+ * Update a folder with offline-first strategy.
+ */
 export function useUpdateFolder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: updateFolder,
-    onSuccess: (data, variables) => {
-      queryClient.setQueryData(folderKeys.detail(variables.id), (old: FolderWithContent | undefined) => {
-        if (!old) return old;
-        return { ...old, ...data };
+    mutationFn: async ({ id, data }: { id: string; data: UpdateFolderData }) => {
+      const now = Date.now();
+      const existing = await db.folders.get(id);
+      if (!existing) throw new Error('Folder not found');
+
+      const updates: Partial<LocalFolder> = {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.parentId !== undefined && { parentId: data.parentId ?? undefined }),
+        ...(data.color !== undefined && { color: data.color ?? undefined }),
+        ...(data.icon !== undefined && { icon: data.icon ?? undefined }),
+        ...(data.position !== undefined && { position: data.position }),
+        updatedAt: now,
+        localModifiedAt: now,
+        syncStatus: 'pending' as const,
+      };
+
+      await db.folders.update(id, updates);
+
+      await syncEngine.queueOperation('folder', id, 'update', {
+        ...data,
+        version: existing.version,
       });
+
+      return { ...existing, ...updates };
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: folderKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
     },
   });
 }
 
+/**
+ * Delete a folder with offline-first strategy.
+ */
 export function useDeleteFolder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: deleteFolder,
+    mutationFn: async (id: string) => {
+      const now = Date.now();
+      const folder = await db.folders.get(id);
+      if (!folder) throw new Error('Folder not found');
+
+      // Move notes in this folder to no folder
+      const notesInFolder = await db.notes
+        .filter((n) => n.folderId === id)
+        .toArray();
+
+      for (const note of notesInFolder) {
+        await db.notes.update(note.id, {
+          folderId: undefined,
+          updatedAt: now,
+          localModifiedAt: now,
+          syncStatus: 'pending',
+        });
+      }
+
+      // Move subfolders to parent folder
+      const subfolders = await db.folders
+        .filter((f) => f.parentId === id)
+        .toArray();
+
+      for (const subfolder of subfolders) {
+        await db.folders.update(subfolder.id, {
+          parentId: folder.parentId,
+          updatedAt: now,
+          localModifiedAt: now,
+          syncStatus: 'pending',
+        });
+      }
+
+      // Soft delete the folder
+      await db.folders.update(id, {
+        deletedAt: now,
+        updatedAt: now,
+        localModifiedAt: now,
+        syncStatus: 'pending',
+      });
+
+      await syncEngine.queueOperation('folder', id, 'delete', {});
+    },
     onSuccess: (_, id) => {
       queryClient.removeQueries({ queryKey: folderKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: folderKeys.lists() });

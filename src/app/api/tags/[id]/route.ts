@@ -8,6 +8,7 @@ import { z } from 'zod';
 const updateTagSchema = z.object({
   name: z.string().min(1).max(50).optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  version: z.number().optional(), // For optimistic locking
 });
 
 // GET /api/tags/[id] - Get a tag with its notes
@@ -83,19 +84,31 @@ export async function PATCH(
     const body = await request.json();
     const data = updateTagSchema.parse(body);
 
-    // Get existing tag
+    // Get existing tag (exclude soft deleted)
     const [existingTag] = await db
       .select()
       .from(tags)
       .where(
         and(
           eq(tags.id, id),
-          eq(tags.userId, session.user.id)
+          eq(tags.userId, session.user.id),
+          isNull(tags.deletedAt)
         )
       );
 
     if (!existingTag) {
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 });
+    }
+
+    // Version conflict check (optimistic locking)
+    if (data.version !== undefined && data.version !== existingTag.version) {
+      return NextResponse.json(
+        {
+          error: 'Version conflict: Tag has been modified',
+          serverVersion: existingTag.version
+        },
+        { status: 409 }
+      );
     }
 
     // Check if another tag with the same name exists
@@ -106,7 +119,8 @@ export async function PATCH(
         .where(
           and(
             eq(tags.userId, session.user.id),
-            eq(tags.name, data.name)
+            eq(tags.name, data.name),
+            isNull(tags.deletedAt)
           )
         );
 
@@ -118,12 +132,16 @@ export async function PATCH(
       }
     }
 
-    // Update tag
+    const now = new Date();
+
+    // Update tag with updatedAt and version increment
     await db
       .update(tags)
       .set({
         ...(data.name !== undefined && { name: data.name }),
         ...(data.color !== undefined && { color: data.color }),
+        updatedAt: now,
+        version: existingTag.version + 1,
       })
       .where(eq(tags.id, id));
 
@@ -141,7 +159,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/tags/[id] - Delete a tag
+// DELETE /api/tags/[id] - Soft delete a tag
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -154,14 +172,15 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Check if tag exists
+    // Check if tag exists and is not already deleted
     const [existingTag] = await db
       .select()
       .from(tags)
       .where(
         and(
           eq(tags.id, id),
-          eq(tags.userId, session.user.id)
+          eq(tags.userId, session.user.id),
+          isNull(tags.deletedAt)
         )
       );
 
@@ -169,13 +188,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 });
     }
 
-    // Delete related noteTags first
+    const now = new Date();
+
+    // Soft delete: Set deletedAt instead of hard delete
+    await db
+      .update(tags)
+      .set({
+        deletedAt: now,
+        updatedAt: now,
+        version: existingTag.version + 1,
+      })
+      .where(eq(tags.id, id));
+
+    // Delete related noteTags (hard delete since they're junction records)
     await db.delete(noteTags).where(eq(noteTags.tagId, id));
 
-    // Delete the tag
-    await db.delete(tags).where(eq(tags.id, id));
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deletedAt: now.toISOString() });
   } catch (error) {
     console.error('Error deleting tag:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

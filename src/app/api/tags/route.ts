@@ -19,19 +19,21 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get tags with note count
+    // Get tags with note count (exclude soft deleted tags)
     const userTags = await db
       .select({
         id: tags.id,
         name: tags.name,
         color: tags.color,
         createdAt: tags.createdAt,
+        updatedAt: tags.updatedAt,
+        version: tags.version,
         noteCount: sql<number>`count(${noteTags.id})`.as('note_count'),
       })
       .from(tags)
       .leftJoin(noteTags, eq(tags.id, noteTags.tagId))
       .leftJoin(notes, and(eq(noteTags.noteId, notes.id), isNull(notes.deletedAt)))
-      .where(eq(tags.userId, session.user.id))
+      .where(and(eq(tags.userId, session.user.id), isNull(tags.deletedAt)))
       .groupBy(tags.id)
       .orderBy(asc(tags.name));
 
@@ -80,6 +82,8 @@ export async function POST(request: NextRequest) {
       name: data.name,
       color: data.color || null,
       createdAt: now,
+      updatedAt: now,
+      version: 1,
     });
 
     const [newTag] = await db.select().from(tags).where(eq(tags.id, id));

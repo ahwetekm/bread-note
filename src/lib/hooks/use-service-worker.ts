@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface ServiceWorkerState {
   isSupported: boolean;
@@ -16,6 +16,7 @@ export function useServiceWorker() {
     isUpdateAvailable: false,
     registration: null,
   });
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -52,7 +53,7 @@ export function useServiceWorker() {
         });
 
         // Check for updates periodically (every hour)
-        setInterval(() => {
+        intervalRef.current = setInterval(() => {
           registration.update();
         }, 60 * 60 * 1000);
 
@@ -64,9 +65,19 @@ export function useServiceWorker() {
     registerSW();
 
     // Listen for controller change (when skipWaiting is called)
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const handleControllerChange = () => {
       window.location.reload();
-    });
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+
+    // Cleanup function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+    };
   }, []);
 
   const updateServiceWorker = () => {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { todos } from '@/lib/db/schema';
-import { eq, and, isNull, sql, desc, asc } from 'drizzle-orm';
+import { eq, and, isNull, sql, desc, asc, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createTodoSchema, listTodosQuerySchema } from '@/lib/validations/todos';
 import { z } from 'zod';
@@ -62,27 +62,42 @@ export async function GET(request: NextRequest) {
       .from(todos)
       .where(and(...conditions));
 
-    // Get subtask counts for each todo
-    const todosWithSubtasks = await Promise.all(
-      userTodos.map(async (todo) => {
-        const subtaskCounts = await db
-          .select({
-            total: sql<number>`count(*)`,
-            completed: sql<number>`sum(case when ${todos.isCompleted} = true then 1 else 0 end)`,
-          })
-          .from(todos)
-          .where(and(eq(todos.parentId, todo.id), isNull(todos.deletedAt)));
+    // Get subtask counts for all todos in a single batch query (N+1 fix)
+    const todoIds = userTodos.map((t) => t.id);
+    const subtaskCountsMap = new Map<string, { total: number; completed: number }>();
 
-        return {
-          ...todo,
-          createdAt: todo.createdAt?.toISOString() || null,
-          updatedAt: todo.updatedAt?.toISOString() || null,
-          completedAt: todo.completedAt?.toISOString() || null,
-          subtaskCount: Number(subtaskCounts[0]?.total || 0),
-          completedSubtaskCount: Number(subtaskCounts[0]?.completed || 0),
-        };
-      })
-    );
+    if (todoIds.length > 0) {
+      const subtaskCounts = await db
+        .select({
+          parentId: todos.parentId,
+          total: sql<number>`count(*)`,
+          completed: sql<number>`sum(case when ${todos.isCompleted} = true then 1 else 0 end)`,
+        })
+        .from(todos)
+        .where(and(inArray(todos.parentId, todoIds), isNull(todos.deletedAt)))
+        .groupBy(todos.parentId);
+
+      for (const row of subtaskCounts) {
+        if (row.parentId) {
+          subtaskCountsMap.set(row.parentId, {
+            total: Number(row.total || 0),
+            completed: Number(row.completed || 0),
+          });
+        }
+      }
+    }
+
+    const todosWithSubtasks = userTodos.map((todo) => {
+      const counts = subtaskCountsMap.get(todo.id) || { total: 0, completed: 0 };
+      return {
+        ...todo,
+        createdAt: todo.createdAt?.toISOString() || null,
+        updatedAt: todo.updatedAt?.toISOString() || null,
+        completedAt: todo.completedAt?.toISOString() || null,
+        subtaskCount: counts.total,
+        completedSubtaskCount: counts.completed,
+      };
+    });
 
     return NextResponse.json({
       todos: todosWithSubtasks,

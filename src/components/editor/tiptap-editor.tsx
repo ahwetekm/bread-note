@@ -56,7 +56,7 @@ export function TiptapEditor({
     autofocus: autoFocus ? 'end' : false,
     editorProps: {
       attributes: {
-        class: 'prose prose-invert max-w-none focus:outline-none min-h-[300px]',
+        class: 'prose max-w-none focus:outline-none min-h-[300px]',
       },
     },
     onUpdate: ({ editor }) => {
